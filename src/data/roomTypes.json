@@ -1,0 +1,34 @@
+{
+  "standard": {
+    "name": "Standard Room",
+    "price": 6800,
+    "description": "Comfortable room with essential amenities",
+    "features": ["Free WiFi", "Air Conditioning", "Private Bathroom", "City View"],
+    "image": "https://images.unsplash.com/photo-1611892440504-42a792e24d32?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    "maxGuests": 2
+  },
+  "deluxe": {
+    "name": "Deluxe Room",
+    "price": 10200,
+    "description": "Spacious room with premium amenities and better view",
+    "features": ["Premium WiFi", "Mini Bar", "Room Service", "Balcony", "Ocean View"],
+    "image": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    "maxGuests": 3
+  },
+  "suite": {
+    "name": "Suite",
+    "price": 15800,
+    "description": "Luxurious suite with separate living area",
+    "features": ["Separate Living Room", "Kitchenette", "Premium Bathroom", "Concierge Service"],
+    "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    "maxGuests": 4
+  },
+  "presidential": {
+    "name": "Presidential Suite",
+    "price": 28000,
+    "description": "Ultimate luxury with panoramic views and exclusive services",
+    "features": ["Private Terrace", "Personal Butler", "Jacuzzi", "Premium Dining", "Panoramic View"],
+    "image": "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    "maxGuests": 6
+  }
+}
