@@ -1,6 +1,6 @@
 import React from 'react';
 
-const RoomDetailsModal = ({ room, roomKey, isOpen, onClose, onSelect, isSelected }) => {
+const RoomDetailsModal = ({ room, roomKey, isOpen, onClose, onSelect, isSelected, currency }) => {
   if (!isOpen) return null;
 
   const handleSelect = () => {
@@ -22,7 +22,7 @@ const RoomDetailsModal = ({ room, roomKey, isOpen, onClose, onSelect, isSelected
           {/* Room Image Gallery */}
           <div className="room-modal-image">
             <img src={room.image} alt={room.name} />
-            <div className="room-modal-price">₱{room.price.toLocaleString()}/night</div>
+            <div className="room-modal-price">{currency?.symbol || '₱'}{room.price.toLocaleString()}/night</div>
             <div className="room-modal-capacity">
               <span>👥 Up to {room.maxGuests} guests</span>
             </div>

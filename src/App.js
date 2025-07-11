@@ -8,6 +8,7 @@ import Payment from './components/Payment';
 import PaymentSuccess from './components/PaymentSuccess';
 import roomTypesData from './data/roomTypes.json';
 import hotelConfigData from './data/hotelConfig.json';
+import servicesData from './data/services.json';
 
 function App() {
   // Hotel Company Configuration - From JSON data
@@ -16,8 +17,17 @@ function App() {
   // Room types with details - From JSON data
   const roomTypes = roomTypesData;
   
-  // Additional service prices - From JSON data
-  const servicePrices = hotelConfigData.servicePrices;
+  // Additional services - From JSON data
+  const services = servicesData;
+  
+  // Legacy servicePrices for backward compatibility
+  const servicePrices = Object.keys(services).reduce((acc, key) => {
+    acc[key] = services[key].price;
+    return acc;
+  }, {});
+  
+  // Get enabled services only
+  const enabledServices = Object.keys(services).filter(key => services[key].enabled);
   
   // Currency configuration - From JSON data
   const currency = hotelConfigData.currency;
@@ -36,21 +46,26 @@ function App() {
   const [selectedRoomForDetails, setSelectedRoomForDetails] = useState(null);
   const [showRoomModal, setShowRoomModal] = useState(false);
 
-  const [formData, setFormData] = useState({
-    // Reservation Details
-    checkIn: '',
-    checkOut: '',
-    roomType: 'standard',
-    guests: 1,
+  const [formData, setFormData] = useState(() => {
+    const initialData = {
+      // Reservation Details
+      checkIn: '',
+      checkOut: '',
+      roomQuantities: {}, // Object to track quantity per room type
+      guests: 1,
+      
+      // Special Requests
+      specialRequests: ''
+    };
     
-    // Additional Services
-    breakfast: false,
-    parking: false,
-    wifi: false,
-    spa: false,
+    // Dynamically add enabled services
+    Object.keys(servicesData).forEach(serviceKey => {
+      if (servicesData[serviceKey].enabled) {
+        initialData[serviceKey] = false;
+      }
+    });
     
-    // Special Requests
-    specialRequests: ''
+    return initialData;
   });
 
   const [totalPrice, setTotalPrice] = useState(0);
@@ -69,12 +84,19 @@ function App() {
       const nights = differenceInDays(checkOutDate, checkInDate);
       
       if (nights > 0) {
-        let basePrice = roomPrices[formData.roomType] * nights;
-        let servicesPrice = 0;
+        // Calculate base price for all selected rooms with quantities
+        let basePrice = 0;
+        Object.keys(formData.roomQuantities).forEach(roomType => {
+          const quantity = formData.roomQuantities[roomType];
+          if (quantity > 0) {
+            basePrice += roomPrices[roomType] * nights * quantity;
+          }
+        });
         
-        Object.keys(servicePrices).forEach(service => {
-          if (formData[service]) {
-            servicesPrice += servicePrices[service] * nights;
+        let servicesPrice = 0;
+        Object.keys(services).forEach(serviceKey => {
+          if (services[serviceKey].enabled && formData[serviceKey]) {
+            servicesPrice += services[serviceKey].price * nights;
           }
         });
         
@@ -91,6 +113,31 @@ function App() {
     }));
   };
 
+  const handleRoomQuantityChange = (roomKey, quantity) => {
+    setFormData(prev => ({
+      ...prev,
+      roomQuantities: {
+        ...prev.roomQuantities,
+        [roomKey]: Math.max(0, parseInt(quantity) || 0)
+      }
+    }));
+  };
+
+  const handleRoomSelection = (roomKey) => {
+    setFormData(prev => {
+      const currentQuantity = prev.roomQuantities[roomKey] || 0;
+      const newQuantity = currentQuantity > 0 ? 0 : 1;
+      
+      return {
+        ...prev,
+        roomQuantities: {
+          ...prev.roomQuantities,
+          [roomKey]: newQuantity
+        }
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -104,41 +151,33 @@ function App() {
     const nights = getNights();
     const priceBreakdown = [];
     
-    // Add room price
-    priceBreakdown.push({
-      description: `${roomTypes[formData.roomType].name} (${nights} night${nights > 1 ? 's' : ''})`,
-      amount: roomPrices[formData.roomType] * nights
+    // Add room prices with quantities
+    Object.keys(formData.roomQuantities).forEach(roomType => {
+      const quantity = formData.roomQuantities[roomType];
+      if (quantity > 0) {
+        priceBreakdown.push({
+          description: `${roomTypes[roomType].name} (${quantity} room${quantity > 1 ? 's' : ''} × ${nights} night${nights > 1 ? 's' : ''})`,
+          amount: roomPrices[roomType] * nights * quantity
+        });
+      }
     });
     
     // Add service prices
-    if (formData.breakfast) {
-      priceBreakdown.push({
-        description: `Breakfast (${nights} night${nights > 1 ? 's' : ''})`,
-        amount: servicePrices.breakfast * nights
-      });
-    }
-    if (formData.parking) {
-      priceBreakdown.push({
-        description: `Parking (${nights} night${nights > 1 ? 's' : ''})`,
-        amount: servicePrices.parking * nights
-      });
-    }
-    if (formData.wifi) {
-      priceBreakdown.push({
-        description: `Premium WiFi (${nights} night${nights > 1 ? 's' : ''})`,
-        amount: servicePrices.wifi * nights
-      });
-    }
-    if (formData.spa) {
-      priceBreakdown.push({
-        description: `Spa Access (${nights} night${nights > 1 ? 's' : ''})`,
-        amount: servicePrices.spa * nights
-      });
-    }
+    Object.keys(services).forEach(serviceKey => {
+      if (services[serviceKey].enabled && formData[serviceKey]) {
+        const service = services[serviceKey];
+        priceBreakdown.push({
+          description: `${service.name} (${nights} night${nights > 1 ? 's' : ''})`,
+          amount: service.price * nights
+        });
+      }
+    });
     
     const booking = {
       ...formData,
-      roomName: roomTypes[formData.roomType].name,
+      roomNames: Object.keys(formData.roomQuantities)
+        .filter(roomType => formData.roomQuantities[roomType] > 0)
+        .map(roomType => `${roomTypes[roomType].name} (${formData.roomQuantities[roomType]})`),
       checkIn: format(new Date(formData.checkIn), 'MMM dd, yyyy'),
       checkOut: format(new Date(formData.checkOut), 'MMM dd, yyyy'),
       nights: nights,
@@ -158,7 +197,10 @@ function App() {
     const basicInfoValid = formData.checkIn && 
                            formData.checkOut &&
                            new Date(formData.checkOut) > new Date(formData.checkIn);
-    return basicInfoValid;
+    
+    const hasRoomsSelected = Object.values(formData.roomQuantities).some(quantity => quantity > 0);
+    
+    return basicInfoValid && hasRoomsSelected;
   };
 
   const getNights = () => {
@@ -211,7 +253,7 @@ function App() {
   };
 
   const handleSelectRoomFromModal = (roomKey) => {
-    setFormData(prev => ({ ...prev, roomType: roomKey }));
+    handleRoomSelection(roomKey);
   };
 
   // Payment flow handlers
@@ -237,17 +279,24 @@ function App() {
     // Close any open modals
     setShowAuthModal(false);
     setShowRoomModal(false);
-    setFormData({
+    
+    // Dynamically reset form data
+    const resetData = {
       checkIn: '',
       checkOut: '',
-      roomType: 'standard',
+      roomQuantities: {},
       guests: 1,
-      breakfast: false,
-      parking: false,
-      wifi: false,
-      spa: false,
       specialRequests: ''
+    };
+    
+    // Reset all enabled services to false
+    Object.keys(services).forEach(serviceKey => {
+      if (services[serviceKey].enabled) {
+        resetData[serviceKey] = false;
+      }
     });
+    
+    setFormData(resetData);
   };
 
   return (
@@ -310,57 +359,98 @@ function App() {
           <div className="form-section">
             <h2 className="section-title">Choose Your Room</h2>
             <div className="room-grid">
-              {Object.entries(roomTypes).map(([key, room]) => (
-                <div 
-                  key={key}
-                  className={`room-card ${formData.roomType === key ? 'selected' : ''}`}
-                >
-                  <div className="room-image">
-                    <img src={room.image} alt={room.name} />
-                    <div className="room-price">{currency.symbol}{room.price.toLocaleString()}/night</div>
-                  </div>
-                  <div className="room-details">
-                    <h3 className="room-name">{room.name}</h3>
-                    <p className="room-description">{room.description}</p>
-                    <div className="room-features">
-                      {room.features.slice(0, 3).map((feature, index) => (
-                        <span key={index} className="feature-tag">{feature}</span>
-                      ))}
+              {Object.entries(roomTypes).map(([key, room]) => {
+                const quantity = formData.roomQuantities[key] || 0;
+                return (
+                  <div 
+                    key={key}
+                    className={`room-card ${quantity > 0 ? 'selected' : ''}`}
+                  >
+                    <div className="room-image">
+                      <img src={room.image} alt={room.name} />
+                      <div className="room-price">{currency.symbol}{room.price.toLocaleString()}/night</div>
                     </div>
-                    <div className="room-capacity">
-                      <span>👥 Up to {room.maxGuests} guests</span>
+                    <div className="room-details">
+                      <h3 className="room-name">{room.name}</h3>
+                      <p className="room-description">{room.description}</p>
+                      <div className="room-features">
+                        {room.features.slice(0, 3).map((feature, index) => (
+                          <span key={index} className="feature-tag">{feature}</span>
+                        ))}
+                      </div>
+                      <div className="room-capacity">
+                        <span>👥 Up to {room.maxGuests} guests</span>
+                      </div>
+                    </div>
+                    
+                    {/* Room Quantity Controls */}
+                    <div className="room-quantity-controls">
+                      <label htmlFor={`quantity-${key}`} className="quantity-label">
+                        Quantity:
+                      </label>
+                      <div className="quantity-input-group">
+                        <button
+                          type="button"
+                          onClick={() => handleRoomQuantityChange(key, quantity - 1)}
+                          className="quantity-btn decrease"
+                          disabled={quantity <= 0}
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          id={`quantity-${key}`}
+                          min="0"
+                          max="10"
+                          value={quantity}
+                          onChange={(e) => handleRoomQuantityChange(key, e.target.value)}
+                          className="quantity-input"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRoomQuantityChange(key, quantity + 1)}
+                          className="quantity-btn increase"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Room Action Buttons */}
+                    <div className="room-actions">
+                      <button
+                        type="button"
+                        onClick={() => handleViewRoomDetails(key)}
+                        className="room-details-btn"
+                      >
+                        📋 View Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRoomSelection(key)}
+                        className={`room-select-btn ${quantity > 0 ? 'selected' : ''}`}
+                      >
+                        {quantity > 0 ? '✓ Selected' : 'Select Room'}
+                      </button>
+                    </div>
+                    
+                    <div className="room-selector">
+                      <input
+                        type="checkbox"
+                        name="roomTypes"
+                        value={key}
+                        checked={quantity > 0}
+                        onChange={() => handleRoomSelection(key)}
+                        className="room-checkbox"
+                      />
+                      <span className="checkmark">✓</span>
+                      {quantity > 0 && (
+                        <span className="quantity-badge">{quantity}</span>
+                      )}
                     </div>
                   </div>
-                  
-                  {/* Room Action Buttons */}
-                  <div className="room-actions">
-                    <button
-                      onClick={() => handleViewRoomDetails(key)}
-                      className="room-details-btn"
-                    >
-                      📋 View Details
-                    </button>
-                    <button
-                      onClick={() => setFormData(prev => ({ ...prev, roomType: key }))}
-                      className={`room-select-btn ${formData.roomType === key ? 'selected' : ''}`}
-                    >
-                      {formData.roomType === key ? '✓ Selected' : 'Select Room'}
-                    </button>
-                  </div>
-                  
-                  <div className="room-selector">
-                    <input
-                      type="radio"
-                      name="roomType"
-                      value={key}
-                      checked={formData.roomType === key}
-                      onChange={() => {}}
-                      className="room-radio"
-                    />
-                    <span className="checkmark">✓</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -405,7 +495,12 @@ function App() {
                   onChange={handleInputChange}
                   className="form-select"
                 >
-                  {Array.from({ length: roomTypes[formData.roomType].maxGuests }, (_, i) => i + 1).map(num => (
+                  {Array.from({ 
+                    length: Object.keys(formData.roomQuantities).reduce((maxGuests, roomType) => {
+                      const quantity = formData.roomQuantities[roomType] || 0;
+                      return maxGuests + (roomTypes[roomType].maxGuests * quantity);
+                    }, 0) || 1
+                  }, (_, i) => i + 1).map(num => (
                     <option key={num} value={num}>{num} Guest{num > 1 ? 's' : ''}</option>
                   ))}
                 </select>
@@ -417,57 +512,24 @@ function App() {
           <div className="form-section">
             <h2 className="section-title">Additional Services</h2>
             <div className="form-grid">
-              <div className="checkbox-group">
-                <input
-                  type="checkbox"
-                  id="breakfast"
-                  name="breakfast"
-                  checked={formData.breakfast}
-                  onChange={handleInputChange}
-                  className="checkbox"
-                />
-                <label htmlFor="breakfast" className="checkbox-label">
-                  Breakfast included (+{currency.symbol}{servicePrices.breakfast.toLocaleString()}/night)</label>
-              </div>
-              
-              <div className="checkbox-group">
-                <input
-                  type="checkbox"
-                  id="parking"
-                  name="parking"
-                  checked={formData.parking}
-                  onChange={handleInputChange}
-                  className="checkbox"
-                />
-                <label htmlFor="parking" className="checkbox-label">
-                  Parking space (+{currency.symbol}{servicePrices.parking.toLocaleString()}/night)</label>
-              </div>
-              
-              <div className="checkbox-group">
-                <input
-                  type="checkbox"
-                  id="wifi"
-                  name="wifi"
-                  checked={formData.wifi}
-                  onChange={handleInputChange}
-                  className="checkbox"
-                />
-                <label htmlFor="wifi" className="checkbox-label">
-                  Premium WiFi (+{currency.symbol}{servicePrices.wifi.toLocaleString()}/night)</label>
-              </div>
-              
-              <div className="checkbox-group">
-                <input
-                  type="checkbox"
-                  id="spa"
-                  name="spa"
-                  checked={formData.spa}
-                  onChange={handleInputChange}
-                  className="checkbox"
-                />
-                <label htmlFor="spa" className="checkbox-label">
-                  Spa access (+{currency.symbol}{servicePrices.spa.toLocaleString()}/night)</label>
-              </div>
+              {enabledServices.map(serviceKey => {
+                const service = services[serviceKey];
+                return (
+                  <div key={serviceKey} className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      id={serviceKey}
+                      name={serviceKey}
+                      checked={formData[serviceKey] || false}
+                      onChange={handleInputChange}
+                      className="checkbox"
+                    />
+                    <label htmlFor={serviceKey} className="checkbox-label">
+                      {service.icon} {service.name} (+{currency.symbol}{service.price.toLocaleString()}/night)
+                    </label>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -493,37 +555,33 @@ function App() {
           {getNights() > 0 && (
             <div className="price-summary">
               <h3 className="section-title">Booking Summary</h3>
-              <div className="price-row">
-                <span>Room: {roomTypes[formData.roomType].name} ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
-                <span>{currency.symbol}{(roomPrices[formData.roomType] * getNights()).toLocaleString()}</span>
-              </div>
-              {formData.breakfast && (
-                <div className="price-row">
-                  <span>Breakfast ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
-                  <span>{currency.symbol}{(servicePrices.breakfast * getNights()).toLocaleString()}</span>
-                </div>
-              )}
-              {formData.parking && (
-                <div className="price-row">
-                  <span>Parking ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
-                  <span>{currency.symbol}{(servicePrices.parking * getNights()).toLocaleString()}</span>
-                </div>
-              )}
-              {formData.wifi && (
-                <div className="price-row">
-                  <span>Premium WiFi ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
-                  <span>{currency.symbol}{(servicePrices.wifi * getNights()).toLocaleString()}</span>
-                </div>
-              )}
-              {formData.spa && (
-                <div className="price-row">
-                  <span>Spa Access ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
-                  <span>{currency.symbol}{(servicePrices.spa * getNights()).toLocaleString()}</span>
-                </div>
-              )}
-              <div className="price-row">
-                <span>Total Amount</span>
-                <span>{currency.symbol}{totalPrice.toLocaleString()}</span>
+              {Object.keys(formData.roomQuantities).map(roomType => {
+                const quantity = formData.roomQuantities[roomType];
+                if (quantity > 0) {
+                  return (
+                    <div key={roomType} className="price-row">
+                      <span>Room: {roomTypes[roomType].name} ({quantity} room{quantity > 1 ? 's' : ''} × {getNights()} night{getNights() > 1 ? 's' : ''})</span>
+                      <span>{currency.symbol}{(roomPrices[roomType] * getNights() * quantity).toLocaleString()}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+              {enabledServices.map(serviceKey => {
+                const service = services[serviceKey];
+                if (formData[serviceKey]) {
+                  return (
+                    <div key={serviceKey} className="price-row">
+                      <span>{service.name} ({getNights()} night{getNights() > 1 ? 's' : ''})</span>
+                      <span>{currency.symbol}{(service.price * getNights()).toLocaleString()}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+              <div className="price-row total-row">
+                <span><strong>Total Amount</strong></span>
+                <span><strong>{currency.symbol}{totalPrice.toLocaleString()}</strong></span>
               </div>
             </div>
           )}
@@ -534,7 +592,9 @@ function App() {
             className="submit-btn"
             disabled={!isFormValid()}
           >
-            {user ? '▶️ Continue to Payment' : '🔐 Sign In to Continue'}
+            {!Object.values(formData.roomQuantities).some(quantity => quantity > 0) 
+              ? '🏨 Please select at least one room' 
+              : user ? '▶️ Continue to Payment' : '🔐 Sign In to Continue'}
           </button>
         </form>
 
@@ -571,7 +631,8 @@ function App() {
                 isOpen={showRoomModal}
                 onClose={handleCloseRoomModal}
                 onSelect={handleSelectRoomFromModal}
-                isSelected={formData.roomType === selectedRoomForDetails}
+                isSelected={(formData.roomQuantities[selectedRoomForDetails] || 0) > 0}
+                currency={currency}
               />
             )}
           </div>

@@ -1,0 +1,65 @@
+{
+  "breakfast": {
+    "name": "Breakfast included",
+    "price": 1400,
+    "description": "Delicious buffet breakfast",
+    "icon": "🍳",
+    "enabled": true
+  },
+  "parking": {
+    "name": "Parking space",
+    "price": 850,
+    "description": "Secure parking facility",
+    "icon": "🚗",
+    "enabled": true
+  },
+  "wifi": {
+    "name": "Premium WiFi",
+    "price": 560,
+    "description": "High-speed internet access",
+    "icon": "📶",
+    "enabled": true
+  },
+  "spa": {
+    "name": "Spa access",
+    "price": 4200,
+    "description": "Full spa and wellness center access",
+    "icon": "🧘",
+    "enabled": true
+  },
+  "laundry": {
+    "name": "Laundry service",
+    "price": 1200,
+    "description": "Professional laundry and dry cleaning",
+    "icon": "👕",
+    "enabled": false
+  },
+  "petCare": {
+    "name": "Pet care service",
+    "price": 2000,
+    "description": "Professional pet sitting and care",
+    "icon": "🐕",
+    "enabled": false
+  },
+  "roomService": {
+    "name": "24/7 Room Service",
+    "price": 800,
+    "description": "Round-the-clock room service",
+    "icon": "🛎️",
+    "enabled": true
+  },
+  "fitness": {
+    "name": "Fitness Center Access",
+    "price": 600,
+    "description": "State-of-the-art fitness facilities",
+    "icon": "💪",
+    "enabled": true
+  },
+  "airportShuttle": {
+    "name": "Airport Shuttle",
+    "price": 950,
+    "description": "Convenient airport transportation",
+    "icon": "🚐",
+    "enabled": false
+  }
+}

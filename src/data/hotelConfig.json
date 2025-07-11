@@ -5,12 +5,6 @@
     "icon": "🏨",
     "brand": "Hotel Marketplace"
   },
-  "servicePrices": {
-    "breakfast": 1400,
-    "parking": 850,
-    "wifi": 560,
-    "spa": 4200
-  },
   "currency": {
     "symbol": "₱",
     "code": "PHP",
